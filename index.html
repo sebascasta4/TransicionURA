@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equivalencias Mattelsa → URA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #252a3a;
+    --accent: #4f9eff;
+    --accent2: #ff6b4a;
+    --success: #3ecf8e;
+    --warn: #f5c542;
+    --text: #e8ecf5;
+    --text2: #8892aa;
+    --text3: #545e78;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative; z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+
+  /* ── HEADER ── */
+  header { margin-bottom: 44px; }
+
+  .header-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .eyebrow-line { width: 24px; height: 2px; background: var(--accent); flex-shrink: 0; }
+  .eyebrow-text {
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--font-head);
+    font-size: clamp(30px, 5vw, 56px);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1.04;
+    margin-bottom: 12px;
+  }
+  h1 .arrow { color: var(--accent2); margin: 0 6px; }
+  h1 .ura { color: var(--accent); }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .header-meta p {
+    color: var(--text2);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #fileStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text3);
+    white-space: nowrap;
+    transition: all .3s;
+  }
+  #fileStatus.ok { border-color: var(--success); color: var(--success); background: rgba(62,207,142,.07); }
+  #fileStatus.err { border-color: var(--accent2); color: var(--accent2); background: rgba(255,107,74,.07); }
+  #fileStatus.loading { border-color: var(--accent); color: var(--accent); background: rgba(79,158,255,.07); }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .status-dot.pulse { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── TABS ── */
+  .tabs-scroll {
+    overflow-x: auto;
+    margin-bottom: 24px;
+    scrollbar-width: none;
+  }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+  .tabs-wrap {
+    display: flex;
+    gap: 6px;
+    width: max-content;
+    padding-bottom: 2px;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .tab:hover { border-color: var(--accent); color: var(--text); }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+  .tab .count {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(0,0,0,.15);
+  }
+  .tab.active .count { background: rgba(0,0,0,.2); }
+
+  /* ── SEARCH ROW ── */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 240px;
+    position: relative;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    pointer-events: none;
+  }
+  input[type=search] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 11px 14px 11px 42px;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input[type=search]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,158,255,.12);
+  }
+  input::placeholder { color: var(--text3); }
+
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .results-info {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .results-info strong { color: var(--accent); }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    background: var(--surface2);
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky; top: 0; z-index: 2;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: .06em;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge-matt { background: rgba(255,107,74,.15); color: var(--accent2); border: 1px solid rgba(255,107,74,.25); }
+  .badge-ura  { background: rgba(79,158,255,.15);  color: var(--accent);  border: 1px solid rgba(79,158,255,.25); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td {
+    padding: 10px 16px;
+    vertical-align: middle;
+    color: var(--text2);
+    line-height: 1.45;
+  }
+  td.code-matt { color: var(--accent2); font-weight: 500; }
+  td.code-ura  { color: var(--accent);  font-weight: 500; }
+  td.desc-col  { color: var(--text); }
+
+  mark {
+    background: rgba(79,158,255,.25);
+    color: var(--accent);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+
+  /* ── RUTA GENERICA ── */
+  .ruta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+  }
+  .ruta-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 0 14px;
+    transition: border-color .15s, transform .15s;
+  }
+  .ruta-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .ruta-num {
+    font-family: var(--font-head);
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--border);
+    line-height: 1;
+    padding-top: 2px;
+  }
+  .ruta-title {
+    font-family: var(--font-head);
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .ruta-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ruta-pill {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .ruta-pill strong { color: var(--accent); margin-right: 3px; }
+  .ruta-pill.ext { border-color: rgba(79,158,255,.3); }
+  .ruta-pill.int { border-color: rgba(62,207,142,.3); color: var(--success); }
+
+  /* ── PAGINATION ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 18px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .page-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+  .page-btn {
+    padding: 6px 11px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+  .page-btn:disabled { opacity: .3; cursor: default; }
+
+  /* ── LOADER ── */
+  .loader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    gap: 20px;
+  }
+  .loader {
+    width: 40px; height: 40px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { color: var(--text3); font-size: 13px; }
+
+  /* ── EMPTY / ERROR ── */
+  .state-box {
+    text-align: center;
+    padding: 70px 20px;
+    color: var(--text3);
+  }
+  .state-box .icon { font-size: 42px; margin-bottom: 14px; }
+  .state-box p { font-size: 14px; line-height: 1.7; max-width: 400px; margin: 0 auto; }
+  .state-box .hint {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: inline-block;
+    text-align: left;
+    line-height: 1.8;
+  }
+  .state-box code {
+    color: var(--accent);
+    background: rgba(79,158,255,.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  @media (max-width: 600px) {
+    .app { padding: 24px 14px 60px; }
+    h1 { font-size: 28px; }
+    .ruta-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="header-eyebrow">
+      <div class="eyebrow-line"></div>
+      <span class="eyebrow-text">Portal de Consulta · Transición de Sistemas</span>
+    </div>
+    <h1>Mattelsa<span class="arrow">→</span><span class="ura">URA</span></h1>
+    <div class="header-meta">
+      <p>Equivalencias de nomenclatura entre ambos sistemas. Busca por código o descripción.</p>
+      <span id="fileStatus">
+        <span class="status-dot pulse"></span>
+        <span id="statusText">Cargando datos…</span>
+      </span>
+    </div>
+  </header>
+
+  <div id="appBody">
+    <div class="loader-wrap">
+      <div class="loader"></div>
+      <p class="loader-text">Leyendo archivo Excel…</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+// Nombre del archivo Excel en el mismo repositorio
+const EXCEL_FILE = 'Portafolios_Transicion_Real.xlsx';
+
+const SHEET_META = {
+  'Items Tela':             { label: 'Ítems Tela',         icon: '🧵' },
+  'Extensiones Telas':      { label: 'Extensiones Telas',  icon: '🎨' },
+  'Item-Extensiones Telas': { label: 'Ítem-Ext Telas',     icon: '🔗' },
+  'Lotes Telas':            { label: 'Lotes Telas',        icon: '📦' },
+  'Items Insumos':          { label: 'Ítems Insumos',      icon: '🔩' },
+  'Lotes Insumos':          { label: 'Lotes Insumos',      icon: '📦' },
+  'Criterios y Mayores':    { label: 'Criterios/Mayores',  icon: '📋' },
+  'Bodegas':                { label: 'Bodegas',            icon: '🏭' },
+  'Ruta Generica URA':      { label: 'Ruta Genérica URA',  icon: '🛣️' },
+};
+
+const PAGE_SIZE = 50;
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let DATA = {};         // { sheetName: [rows] }
+let currentSheet = '';
+let currentPage  = 1;
+let searchTerm   = '';
+let filterCol    = 'all';
+let filtered     = [];
+
+// ─── LOAD EXCEL ────────────────────────────────────────────────────────────
+async function loadExcel() {
+  const statusEl   = document.getElementById('fileStatus');
+  const statusText = document.getElementById('statusText');
+
+  statusEl.className = 'loading';
+  statusText.textContent = 'Cargando datos…';
+
+  try {
+    const res = await fetch(EXCEL_FILE + '?t=' + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf  = await res.arrayBuffer();
+    const wb   = XLSX.read(buf, { type: 'array' });
+
+    wb.SheetNames.forEach(name => {
+      if (name === 'Items PT') return; // hoja vacía
+      const ws   = wb.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      // Strip unnamed columns
+      const clean = rows.map(r => {
+        const obj = {};
+        Object.entries(r).forEach(([k, v]) => {
+          if (!k.startsWith('__EMPTY') && !k.startsWith('Unnamed')) obj[k] = String(v ?? '');
+        });
+        return obj;
+      }).filter(r => Object.values(r).some(v => v !== ''));
+      if (clean.length) DATA[name] = clean;
+    });
+
+    const total = Object.values(DATA).reduce((s, a) => s + a.length, 0);
+    statusEl.className = 'ok';
+    statusEl.querySelector('.status-dot').classList.remove('pulse');
+    statusText.textContent = `${total.toLocaleString('es-CO')} registros cargados`;
+
+    currentSheet = Object.keys(DATA)[0];
+    buildUI();
+
+  } catch (err) {
+    statusEl.className = 'err';
+    statusEl.querySelector('.status-dot').classList.remove('pulse');
+    statusText.textContent = 'Error al cargar el archivo';
+    document.getElementById('appBody').innerHTML = `
+      <div class="state-box">
+        <div class="icon">⚠️</div>
+        <p>No se pudo leer <strong>${EXCEL_FILE}</strong>.<br>Verifica que el archivo esté en la raíz del repositorio con exactamente ese nombre.</p>
+        <div class="hint">
+          Estructura esperada del repo:<br>
+          <code>index.html</code><br>
+          <code>${EXCEL_FILE}</code>
+        </div>
+      </div>`;
+  }
+}
+
+// ─── BUILD UI ──────────────────────────────────────────────────────────────
+function buildUI() {
+  document.getElementById('appBody').innerHTML = `
+    <div class="tabs-scroll"><div class="tabs-wrap" id="tabs"></div></div>
+    <div class="search-row">
+      <div class="search-wrap">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="searchInput" placeholder="Buscar código, descripción…" autocomplete="off">
+      </div>
+      <select id="filterCol"><option value="all">Todos los campos</option></select>
+      <span class="results-info" id="resultCount"></span>
+    </div>
+    <div id="mainContent"></div>
+    <div class="pagination" id="pagination"></div>
+  `;
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    searchTerm = e.target.value.trim();
+    currentPage = 1;
+    render();
+  });
+  document.getElementById('filterCol').addEventListener('change', e => {
+    filterCol = e.target.value;
+    currentPage = 1;
+    render();
+  });
+
+  buildTabs();
+  buildFilterOptions();
+  render();
+}
+
+// ─── TABS ──────────────────────────────────────────────────────────────────
+function buildTabs() {
+  const wrap = document.getElementById('tabs');
+  wrap.innerHTML = '';
+  Object.keys(DATA).forEach(key => {
+    const m   = SHEET_META[key] || {};
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (key === currentSheet ? ' active' : '');
+    btn.innerHTML = `${m.icon ? m.icon + ' ' : ''}${m.label || key} <span class="count">${DATA[key].length.toLocaleString('es-CO')}</span>`;
+    btn.onclick = () => {
+      currentSheet = key;
+      currentPage  = 1;
+      searchTerm   = '';
+      filterCol    = 'all';
+      document.getElementById('searchInput').value = '';
+      buildTabs();
+      buildFilterOptions();
+      render();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// ─── FILTER OPTIONS ────────────────────────────────────────────────────────
+function buildFilterOptions() {
+  const sel  = document.getElementById('filterCol');
+  const cols = DATA[currentSheet]?.length ? Object.keys(DATA[currentSheet][0]) : [];
+  sel.innerHTML = '<option value="all">Todos los campos</option>';
+  cols.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    if (c === filterCol) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ─── HIGHLIGHT ─────────────────────────────────────────────────────────────
+function hl(text, term) {
+  if (!term || !text) return text ?? '';
+  const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(text).replace(new RegExp('(' + esc + ')', 'gi'), '<mark>$1</mark>');
+}
+
+// ─── FILTER ────────────────────────────────────────────────────────────────
+function applyFilter() {
+  const rows = DATA[currentSheet] || [];
+  if (!searchTerm) { filtered = rows; return; }
+  const term = searchTerm.toLowerCase();
+  filtered = rows.filter(row => {
+    if (filterCol !== 'all') return String(row[filterCol] ?? '').toLowerCase().includes(term);
+    return Object.values(row).some(v => String(v ?? '').toLowerCase().includes(term));
+  });
+}
+
+// ─── COLUMN CLASS ──────────────────────────────────────────────────────────
+function tdClass(col) {
+  const n = col.toLowerCase();
+  if (n.includes('mattelsa') || (n.includes('matt') && !n.includes('ura'))) return 'code-matt';
+  if (n.includes('ura')) return 'code-ura';
+  if (n.includes('desc') || n.includes('descripci')) return 'desc-col';
+  return '';
+}
+
+// ─── RUTA GENERICA ─────────────────────────────────────────────────────────
+function renderRuta() {
+  if (!filtered.length) return emptyState();
+  const cards = filtered.map(row => {
+    const op    = row['Operación']    || row['Operacion']    || '';
+    const desc  = row['Descripción']  || row['Descripcion']  || '';
+    const descOp= row['DESCRIPCIÓN DE LA OPERACIÓN'] || row['DESCRIPCION DE LA OPERACION'] || '';
+    const tipo  = row['TIPO DE OPERACIÓN(0=interna,1=Externa)'] || '';
+    const tipoLabel = tipo === '0' ? 'Interna 🏠' : tipo === '1' ? 'Externa 🔄' : tipo;
+    const tipoClass = tipo === '0' ? 'int' : tipo === '1' ? 'ext' : '';
+    const item  = row['ÍTEM DEL SERVICIO'] || row['Item Serv/CT'] || '';
+    const tarifa= row['TARIFA EXTERNA'] || '';
+    const ct    = row['CENTRO DE TRABAJO(solo aplica para operaciones internas)'] || '';
+    const qty   = row['CANTIDAD BASE (Si es una operación externa =1)'] || '';
+    const hrs   = row['N° HORAS DE EJECCIÓN(solo aplica para operaciones internas)'] || '';
+    return `<div class="ruta-card">
+      <div class="ruta-num">${hl(op, searchTerm) || '—'}</div>
+      <div>
+        <div class="ruta-title">${hl(desc, searchTerm) || '—'}</div>
+        <div class="ruta-pills">
+          ${descOp  ? `<span class="ruta-pill">${hl(descOp, searchTerm)}</span>` : ''}
+          ${tipoLabel ? `<span class="ruta-pill ${tipoClass}"><strong>Tipo</strong>${tipoLabel}</span>` : ''}
+          ${item    ? `<span class="ruta-pill"><strong>Ítem/CT</strong>${hl(item, searchTerm)}</span>` : ''}
+          ${tarifa  ? `<span class="ruta-pill"><strong>Tarifa</strong>${tarifa}</span>` : ''}
+          ${ct      ? `<span class="ruta-pill"><strong>CT</strong>${ct}</span>` : ''}
+          ${qty     ? `<span class="ruta-pill"><strong>Qty</strong>${qty}</span>` : ''}
+          ${hrs     ? `<span class="ruta-pill"><strong>Hrs</strong>${hrs}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="ruta-grid">${cards}</div>`;
+}
+
+// ─── EMPTY STATE ───────────────────────────────────────────────────────────
+function emptyState() {
+  return `<div class="state-box"><div class="icon">🔍</div><p>Ningún registro coincide con "<strong>${searchTerm}</strong>".</p></div>`;
+}
+
+// ─── MAIN RENDER ───────────────────────────────────────────────────────────
+function render() {
+  applyFilter();
+
+  const countEl = document.getElementById('resultCount');
+  const content = document.getElementById('mainContent');
+  const pag     = document.getElementById('pagination');
+
+  countEl.innerHTML = `<strong>${filtered.length.toLocaleString('es-CO')}</strong> resultado${filtered.length !== 1 ? 's' : ''}`;
+
+  // Special layout for Ruta Generica
+  if (currentSheet === 'Ruta Generica URA') {
+    content.innerHTML = renderRuta();
+    pag.innerHTML = '';
+    return;
+  }
+
+  if (!filtered.length) {
+    content.innerHTML = emptyState();
+    pag.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (currentPage > totalPages) currentPage = 1;
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const cols     = Object.keys(filtered[0]);
+
+  let html = '<div class="table-wrap"><table><thead><tr>';
+  cols.forEach(c => {
+    const isMatt = c.toLowerCase().includes('matt') || c.toLowerCase().includes('mattelsa');
+    const isUra  = c.toLowerCase().includes('ura');
+    html += `<th>${c}${isMatt ? '<span class="badge badge-matt">MATT</span>' : ''}${isUra ? '<span class="badge badge-ura">URA</span>' : ''}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  pageRows.forEach(row => {
+    html += '<tr>';
+    cols.forEach(c => {
+      html += `<td class="${tdClass(c)}">${hl(row[c], searchTerm)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  content.innerHTML = html;
+
+  // Pagination
+  pag.innerHTML = '';
+  if (totalPages <= 1) return;
+
+  const info = document.createElement('span');
+  info.className = 'results-info';
+  info.innerHTML = `Página <strong>${currentPage}</strong> de <strong>${totalPages}</strong>`;
+  pag.appendChild(info);
+
+  const btns = document.createElement('div');
+  btns.className = 'page-btns';
+
+  const prev = document.createElement('button');
+  prev.className = 'page-btn';
+  prev.textContent = '← Anterior';
+  prev.disabled = currentPage === 1;
+  prev.onclick = () => { currentPage--; render(); scrollTo(0, 0); };
+  btns.appendChild(prev);
+
+  const start = Math.max(1, currentPage - 2);
+  const end   = Math.min(totalPages, start + 4);
+  for (let i = start; i <= end; i++) {
+    const pb = document.createElement('button');
+    pb.className = 'page-btn' + (i === currentPage ? ' active' : '');
+    pb.textContent = i;
+    const pg = i;
+    pb.onclick = () => { currentPage = pg; render(); scrollTo(0, 0); };
+    btns.appendChild(pb);
+  }
+
+  const next = document.createElement('button');
+  next.className = 'page-btn';
+  next.textContent = 'Siguiente →';
+  next.disabled = currentPage === totalPages;
+  next.onclick = () => { currentPage++; render(); scrollTo(0, 0); };
+  btns.appendChild(next);
+
+  pag.appendChild(btns);
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+loadExcel();
+</script>
+</body>
+</html>
